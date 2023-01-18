@@ -17,13 +17,13 @@ async fn main() -> Result<()> {
     let db = &(database::get_datastore_session().await?);
 
     // --- Create
-    let t1 = create_task(db, "Task 01", 10).await?;
+    let t1 = create_task(db, "Task 01", 10, "NOT STARTED").await?;
     println!("{t1}");
-    let t2 = create_task(db, "Task 02", 7).await?;
+    let t2 = create_task(db, "Task 02", 7, "IN PROGRESS").await?;
     println!("{t2}");
 
     // --- Merge/Update
-    let task_id = database::update_task(db, t2).await?;
+    let task_id = database::update_task(db, t2, "COMPLETED").await?;
     println!("merged task id is {task_id}");
 
     // -- delete task

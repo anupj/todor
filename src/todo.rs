@@ -1,5 +1,9 @@
 #![allow(unused)]
 
+use crate::database;
+use crate::database::DB;
+use anyhow::{anyhow, Ok, Result};
+
 pub struct TodoList {
     tasks: Vec<Task>,
 }
@@ -13,8 +17,10 @@ impl TodoList {
 
     // add a new task to the
     // todo list
-    pub fn add_task(&mut self, t: String) {
+    pub async fn add_task(&mut self, t: String, db: &DB) -> Result<()> {
         self.tasks.push(Task(t, Status::NotStarted));
+        database::create_task(db, "Task 01", 10, "NOT STARTED").await;
+        Ok(())
     }
 
     // Returns a tuple of task name and task status

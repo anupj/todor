@@ -14,15 +14,21 @@ pub async fn get_datastore_session() -> Result<DB> {
     // namespace and db name
     Ok((
         Datastore::new("memory").await?,
-        Session::for_db("", "my_db"),
+        Session::for_db("my_ns", "todo"),
     ))
 }
 
-pub async fn create_task((ds, ses): &DB, title: &str, priority: i32) -> Result<String> {
+pub async fn create_task(
+    (ds, ses): &DB,
+    title: &str,
+    priority: i32,
+    status: &str,
+) -> Result<String> {
     let sql = "CREATE task CONTENT $data";
 
     let data_map: BTreeMap<String, Value> = [
         ("title".into(), title.into()),
+        ("status".into(), status.into()),
         ("priority".into(), priority.into()),
     ]
     .into();
@@ -55,13 +61,9 @@ fn into_iter_objects(ress: Vec<Response>) -> Result<impl Iterator<Item = Result<
     }
 }
 
-pub async fn update_task((ds, ses): &DB, task_id: String) -> Result<String> {
+pub async fn update_task((ds, ses): &DB, task_id: String, status: &str) -> Result<String> {
     let sql = "UPDATE $th MERGE $data RETURN id";
-    let data_map: BTreeMap<String, Value> = [
-        ("title".into(), "Task 02 UPDATED".into()),
-        ("done".into(), true.into()),
-    ]
-    .into();
+    let data_map: BTreeMap<String, Value> = [("status".into(), status.into())].into();
     let vars: BTreeMap<String, Value> = [
         // `thing` will parse task_id
         // and ensure its well formatted
