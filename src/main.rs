@@ -1,97 +1,37 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+mod database;
 mod todo;
 
+use crate::database::create_task;
+use crate::database::DB;
 use anyhow::{anyhow, Ok, Result};
 use std::collections::BTreeMap;
 use surrealdb::sql::{thing, Datetime, Object, Thing, Value};
 use surrealdb::{Datastore, Response, Session};
 
-type DB = (Datastore, Session);
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Start by creating a datastore and session with
-    // namespace and db name
-    let db: &DB = &(
-        Datastore::new("memory").await?,
-        Session::for_db("my_ns", "my_db"),
-    );
-    let (ds, ses) = db;
+    // Get datastore and session
+    let db = &(database::get_datastore_session().await?);
 
     // --- Create
     let t1 = create_task(db, "Task 01", 10).await?;
+    println!("{t1}");
     let t2 = create_task(db, "Task 02", 7).await?;
+    println!("{t2}");
 
-    // --- Merge
-    let sql = "UPDATE $th MERGE $data RETURN id";
-    let data_map: BTreeMap<String, Value> = [
-        ("title".into(), "Task 02 UPDATED".into()),
-        ("done".into(), true.into()),
-    ]
-    .into();
-    let vars: BTreeMap<String, Value> = [
-        // `thing` will parse t2
-        // and ensure its well formatted
-        ("th".into(), thing(&t2)?.into()),
-        ("data".into(), data_map.into()),
-    ]
-    .into();
+    // --- Merge/Update
+    let task_id = database::update_task(db, t2).await?;
+    println!("merged task id is {task_id}");
 
-    // we set `strict` to true
-    // because we want to ensure
-    // fields exist before updating
-    ds.execute(sql, ses, Some(vars), true).await?;
+    // -- delete task
+    let task_id = database::delete_task(db, t1).await?;
+    println!("deleted task id is {task_id}");
 
-    // --- Delete
-    let sql = "DELETE $th";
-    let vars: BTreeMap<String, Value> = [("th".into(), thing(&t1)?.into())].into();
-    ds.execute(sql, ses, Some(vars), true).await?;
-
-    // --- Select
-    let sql = "SELECT * from task";
-    let ress = ds.execute(sql, ses, None, false).await?;
-    for object in into_iter_objects(ress)? {
-        println!("record {}", object?);
-    }
+    // -- get all tasks
+    database::get_all_tasks(db).await?;
 
     Ok(())
-}
-
-async fn create_task((ds, ses): &DB, title: &str, priority: i32) -> Result<String> {
-    let sql = "CREATE task CONTENT $data";
-
-    let data_map: BTreeMap<String, Value> = [
-        ("title".into(), title.into()),
-        ("priority".into(), priority.into()),
-    ]
-    .into();
-
-    let vars: BTreeMap<String, Value> = [("data".into(), data_map.into())].into();
-
-    // setting `strict` param to `false`
-    // because we want to create table/column
-    // that might not be pre-defined in the db
-    let ress = ds.execute(sql, ses, Some(vars), false).await?;
-    into_iter_objects(ress)?
-        .next()
-        .transpose()?
-        .and_then(|obj| obj.get("id").map(|id| id.to_string()))
-        .ok_or_else(|| anyhow!("No id returned"))
-}
-
-fn into_iter_objects(ress: Vec<Response>) -> Result<impl Iterator<Item = Result<Object>>> {
-    let res = ress.into_iter().next().map(|rp| rp.result).transpose()?;
-
-    match res {
-        Some(Value::Array(arr)) => {
-            let it = arr.into_iter().map(|v| match v {
-                Value::Object(object) => Ok(object),
-                _ => Err(anyhow!("A record was not an Object")),
-            });
-            Ok(it)
-        }
-        _ => Err(anyhow!("No records founds")),
-    }
 }
