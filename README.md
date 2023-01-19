@@ -6,8 +6,8 @@ want to make.
 
 ## TODO (no pun intended)
 
-[ ] Write tests
-[ ] Add a CLI frontend
+- [ ] Write tests
+- [ ] Add a CLI frontend
 
 ## License
 
