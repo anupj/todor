@@ -9,9 +9,13 @@ pub struct TodoList {
     tasks: Vec<Task>,
 }
 
-// Task(id, title, status, priority)
 #[derive(Debug, Clone)]
-pub(crate) struct Task(String, String, Status, u8);
+pub(crate) struct Task {
+    id: String,
+    title: String,
+    status: Status,
+    priority: u8,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Status {
@@ -88,9 +92,12 @@ impl TodoList {
         let mut todo_list = TodoList::new();
 
         for task in tasks {
-            todo_list
-                .tasks
-                .push(Task(task.0, task.1, task.2.into(), task.3))
+            todo_list.tasks.push(Task {
+                id: task.0,
+                title: task.1,
+                status: task.2.into(),
+                priority: task.3,
+            })
         }
         Ok(todo_list)
     }
