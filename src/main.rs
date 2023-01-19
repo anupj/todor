@@ -1,37 +1,41 @@
-#![allow(dead_code)]
-#![allow(unused)]
-
 mod database;
 mod todo;
 
-use crate::database::create_task;
-use crate::database::DB;
-use anyhow::{anyhow, Ok, Result};
-use std::collections::BTreeMap;
-use surrealdb::sql::{thing, Datetime, Object, Thing, Value};
-use surrealdb::{Datastore, Response, Session};
+use crate::todo::TodoList;
+use anyhow::{Ok, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Get datastore and session
     let db = &(database::get_datastore_session().await?);
 
+    let mut todo = TodoList::new();
+
     // --- Create
-    let t1 = create_task(db, "Task 01", 10, "NOT STARTED").await?;
-    println!("{t1}");
-    let t2 = create_task(db, "Task 02", 7, "IN PROGRESS").await?;
-    println!("{t2}");
+    let task_id = todo.add_task(db, "Buy Milk", 5).await?;
+    let task_id_2 = todo.add_task(db, "Buy Milk", 5).await?;
+    println!("The task id after create is: {task_id}");
+    println!("The task id after create is: {task_id_2}");
 
     // --- Merge/Update
-    let task_id = database::update_task(db, t2, "COMPLETED").await?;
+    let task_id = todo
+        .merge_task(
+            db,
+            &task_id,
+            "Get milk from store",
+            todo::Status::NotStarted,
+            06,
+        )
+        .await?;
     println!("merged task id is {task_id}");
 
     // -- delete task
-    let task_id = database::delete_task(db, t1).await?;
-    println!("deleted task id is {task_id}");
+    // let task_id = database::delete_task(db, t1).await?;
+    // println!("deleted task id is {task_id}");
 
     // -- get all tasks
-    database::get_all_tasks(db).await?;
+    let all_tasks = todo.get_all_tasks(db).await?;
+    println!("The returned tasks is {:?}", all_tasks);
 
     Ok(())
 }

@@ -1,9 +1,6 @@
-#![allow(unused)]
-
-use crate::todo::TodoList;
 use anyhow::{anyhow, Ok, Result};
 use std::collections::BTreeMap;
-use surrealdb::sql::{thing, Datetime, Object, Thing, Value};
+use surrealdb::sql::{thing, Object, Value};
 use surrealdb::{Datastore, Response, Session};
 
 // convenience type
@@ -21,7 +18,7 @@ pub async fn get_datastore_session() -> Result<DB> {
 pub async fn create_task(
     (ds, ses): &DB,
     title: &str,
-    priority: i32,
+    priority: u8,
     status: &str,
 ) -> Result<String> {
     let sql = "CREATE task CONTENT $data";
@@ -61,13 +58,24 @@ fn into_iter_objects(ress: Vec<Response>) -> Result<impl Iterator<Item = Result<
     }
 }
 
-pub async fn update_task((ds, ses): &DB, task_id: String, status: &str) -> Result<String> {
+pub async fn update_task<'a>(
+    (ds, ses): &DB,
+    task_id: &'a str,
+    title: &'a str,
+    status: &'a str,
+    priority: u8,
+) -> Result<&'a str> {
     let sql = "UPDATE $th MERGE $data RETURN id";
-    let data_map: BTreeMap<String, Value> = [("status".into(), status.into())].into();
+    let data_map: BTreeMap<String, Value> = [
+        ("title".into(), title.into()),
+        ("status".into(), status.into()),
+        ("priority".into(), priority.into()),
+    ]
+    .into();
     let vars: BTreeMap<String, Value> = [
         // `thing` will parse task_id
         // and ensure its well formatted
-        ("th".into(), thing(&task_id)?.into()),
+        ("th".into(), thing(task_id)?.into()),
         ("data".into(), data_map.into()),
     ]
     .into();
@@ -87,15 +95,26 @@ pub async fn delete_task((ds, ses): &DB, task_id: String) -> Result<String> {
     Ok(task_id)
 }
 
-pub async fn get_all_tasks((ds, ses): &DB) -> Result<()> {
+// Gets the data from db and returns a Vec of (title, status, priority)
+pub async fn get_all_tasks((ds, ses): &DB) -> Result<Vec<(String, String, u8)>> {
     // --- Select
     let sql = "SELECT * from task";
-    let ress = ds.execute(sql, ses, None, false).await?;
-    for object in into_iter_objects(ress)? {
-        let task = object?;
-        // let key_value: BTreeMap<String, _> = task.into();
+    let response = ds.execute(sql, ses, None, false).await?;
 
-        println!("record {}", task);
+    // Vec of (title, status, priority)
+    let mut tasks: Vec<(String, String, u8)> = Vec::new();
+    for object in into_iter_objects(response)? {
+        let obj = object?;
+        println!("task record {:?}", obj);
+        // let id = obj.get("id").map(|id| id.to_string()).unwrap();
+        let p = obj
+            .get("priority")
+            .map(|p| p.to_string().parse::<u8>().unwrap())
+            .unwrap();
+        let s = obj.get("status").map(|id| id.to_string()).unwrap();
+        let t = obj.get("title").map(|id| id.to_string()).unwrap();
+
+        tasks.push((t, s, p));
     }
-    Ok(())
+    Ok(tasks)
 }
