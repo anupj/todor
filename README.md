@@ -1,8 +1,7 @@
 # Introduction
 
-This a toy project to show how to implement SurrealDB with Rust by building
-a basic Todo app. Everything works but I do have a few enhancements that I
-want to make.
+This is a toy project to demonstrate how to implement SurrealDB with Rust by building
+a basic Todo app.
 
 ## TODO (no pun intended)
 
