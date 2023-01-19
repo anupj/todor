@@ -14,12 +14,12 @@ async fn main() -> Result<()> {
     // --- Create
     let task_id = todo.add_task(db, "Buy Milk", 5).await?;
     let task_id_2 = todo.add_task(db, "Buy Milk", 5).await?;
-    println!("The task id after create is: {task_id}");
-    println!("The task id after create is: {task_id_2}");
+    println!("The task id of the first task after create is: {task_id}");
+    println!("The task id of the second task after create is: {task_id_2}");
 
     // --- Merge/Update
     let task_id = todo
-        .merge_task(
+        .update_task(
             db,
             &task_id,
             "Get milk from store",
@@ -27,15 +27,15 @@ async fn main() -> Result<()> {
             06,
         )
         .await?;
-    println!("merged task id is {task_id}");
+    println!("Merged task id is {task_id}");
 
-    // -- delete task
-    // let task_id = database::delete_task(db, t1).await?;
-    // println!("deleted task id is {task_id}");
+    // -- archive task id 1
+    let task_id = todo.archive_task(db, task_id).await?;
+    println!("Archived task id 1 {task_id}");
 
     // -- get all tasks
     let all_tasks = todo.get_all_tasks(db).await?;
-    println!("The returned tasks is {:?}", all_tasks);
+    println!("The returned tasks are {:?}", all_tasks);
 
     Ok(())
 }

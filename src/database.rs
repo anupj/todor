@@ -22,7 +22,6 @@ pub async fn create_task(
     status: &str,
 ) -> Result<String> {
     let sql = "CREATE task CONTENT $data";
-
     let data_map: BTreeMap<String, Value> = [
         ("title".into(), title.into()),
         ("status".into(), status.into()),
@@ -87,7 +86,26 @@ pub async fn update_task<'a>(
     Ok(task_id)
 }
 
-pub async fn delete_task((ds, ses): &DB, task_id: String) -> Result<String> {
+pub async fn archive_task<'a>((ds, ses): &DB, task_id: &'a str) -> Result<&'a str> {
+    let sql = "UPDATE $th MERGE $data RETURN id";
+    let data_map: BTreeMap<String, Value> = [("status".into(), "Archived".into())].into();
+    let vars: BTreeMap<String, Value> = [
+        // `thing` will parse task_id
+        // and ensure its well formatted
+        ("th".into(), thing(task_id)?.into()),
+        ("data".into(), data_map.into()),
+    ]
+    .into();
+
+    // we set `strict` to true
+    // because we want to ensure
+    // fields exist before updating
+    ds.execute(sql, ses, Some(vars), true).await?;
+    Ok(task_id)
+}
+
+// delete it from the database
+pub async fn hard_delete_task<'a>((ds, ses): &DB, task_id: &'a str) -> Result<&'a str> {
     // --- Delete
     let sql = "DELETE $th";
     let vars: BTreeMap<String, Value> = [("th".into(), thing(&task_id)?.into())].into();
@@ -95,26 +113,29 @@ pub async fn delete_task((ds, ses): &DB, task_id: String) -> Result<String> {
     Ok(task_id)
 }
 
-// Gets the data from db and returns a Vec of (title, status, priority)
-pub async fn get_all_tasks((ds, ses): &DB) -> Result<Vec<(String, String, u8)>> {
+// Gets the data from db and returns a Vec of (id, title, status, priority)
+pub async fn get_all_tasks((ds, ses): &DB) -> Result<Vec<(String, String, String, u8)>> {
     // --- Select
     let sql = "SELECT * from task";
     let response = ds.execute(sql, ses, None, false).await?;
 
-    // Vec of (title, status, priority)
-    let mut tasks: Vec<(String, String, u8)> = Vec::new();
+    // Vec of (id, title, status, priority)
+    let mut tasks: Vec<(String, String, String, u8)> = Vec::new();
+
     for object in into_iter_objects(response)? {
         let obj = object?;
-        println!("task record {:?}", obj);
-        // let id = obj.get("id").map(|id| id.to_string()).unwrap();
-        let p = obj
+        let id = obj.get("id").map(|id| id.to_string()).unwrap();
+        let priority = obj
             .get("priority")
             .map(|p| p.to_string().parse::<u8>().unwrap())
             .unwrap();
-        let s = obj.get("status").map(|id| id.to_string()).unwrap();
-        let t = obj.get("title").map(|id| id.to_string()).unwrap();
+        // Note to self
+        // String values are returned from db surrounded by double quotes
+        // so Archived is returned as "Archived", Bring Milk is returned as "Bring milk"
+        let status = obj.get("status").map(|id| id.to_string()).unwrap();
+        let title = obj.get("title").map(|id| id.to_string()).unwrap();
 
-        tasks.push((t, s, p));
+        tasks.push((id, title, status, priority));
     }
     Ok(tasks)
 }
