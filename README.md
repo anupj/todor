@@ -1,12 +1,7 @@
 # Introduction
 
-This is a toy project to demonstrate how to implement SurrealDB with Rust by building
+This is a toy project to demonstrate how to implement [SurrealDB](https://surrealdb.com/) with [Rust](https://www.rust-lang.org/) by building
 a basic Todo app.
-
-## TODO (no pun intended)
-
-- [ ] Write tests
-- [ ] Add a CLI frontend
 
 ## License
 

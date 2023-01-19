@@ -86,7 +86,7 @@ impl TodoList {
         Ok(task_id)
     }
 
-    // Returns a tuple of task name and task status
+    // Return the `TodoList` struct
     pub async fn get_all_tasks(&self, db: &DB) -> Result<TodoList> {
         let tasks = database::get_all_tasks(db).await?;
         let mut todo_list = TodoList::new();
@@ -100,5 +100,134 @@ impl TodoList {
             })
         }
         Ok(todo_list)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use anyhow::{Ok, Result};
+
+    #[tokio::test]
+    async fn test_add_tasks_to_database() -> Result<()> {
+        let db = &(database::get_datastore_session().await?);
+
+        let mut todo = TodoList::new();
+
+        // -- create tasks
+        let task_id = todo.add_task(db, "Buy Milk", 5).await?;
+        let task_id_2 = todo.add_task(db, "Finish project", 1).await?;
+
+        // --get all tasks
+        let all_tasks = todo.get_all_tasks(db).await?;
+
+        // Assert
+        assert!(task_id.is_empty() != true);
+        assert!(task_id_2.is_empty() != true);
+        assert!(all_tasks.tasks.is_empty() != true);
+
+        for task in all_tasks.tasks.iter() {
+            match task.title.as_str() {
+                "Buy Milk" => assert_eq!(task.priority, 5),
+                "Finish project" => assert_eq!(task.priority, 1),
+                _ => assert!(task.title.is_empty() != true),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_update_tasks() -> Result<()> {
+        let db = &(database::get_datastore_session().await?);
+
+        let mut todo = TodoList::new();
+
+        // -- create tasks
+        let task_id = todo.add_task(db, "Buy Milk", 5).await?;
+        let task_id_2 = todo.add_task(db, "Finish project", 1).await?;
+
+        // --- Merge/Update
+        let task_id = todo
+            .update_task(db, &task_id, "Get milk from store", Status::Completed, 06)
+            .await?;
+
+        // --get all tasks
+        let all_tasks = todo.get_all_tasks(db).await?;
+
+        // Assert
+        assert!(task_id.is_empty() != true);
+        assert!(task_id_2.is_empty() != true);
+        assert!(all_tasks.tasks.is_empty() != true);
+
+        for task in all_tasks.tasks.iter() {
+            match task.title.as_str() {
+                "Get milk from store" => assert_eq!(task.status, Status::Completed),
+                _ => assert!(task.title.is_empty() != true),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_archive_task() -> Result<()> {
+        let db = &(database::get_datastore_session().await?);
+
+        let mut todo = TodoList::new();
+
+        // -- create tasks
+        let task_id = todo.add_task(db, "Buy Milk", 5).await?;
+        let task_id_2 = todo.add_task(db, "Finish project", 1).await?;
+
+
+        // -- archive task id 1
+        let task_id = todo.archive_task(db, task_id.as_str()).await?;
+        println!("Archived task id 1 {task_id}");
+
+        // --get all tasks
+        let all_tasks = todo.get_all_tasks(db).await?;
+
+        // Assert
+        assert!(task_id.is_empty() != true);
+        assert!(task_id_2.is_empty() != true);
+        assert!(all_tasks.tasks.is_empty() != true);
+
+        for task in all_tasks.tasks.iter() {
+            match task.title.as_str() {
+                "Buy Milk" => assert_eq!(task.status, Status::Archived),
+                _ => assert!(task.title.is_empty() != true),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_delete_task() -> Result<()> {
+        let db = &(database::get_datastore_session().await?);
+
+        let mut todo = TodoList::new();
+
+        // -- create tasks
+        let task_id = todo.add_task(db, "Buy Milk", 5).await?;
+        let task_id_2 = todo.add_task(db, "Finish project", 1).await?;
+
+        // -- delete task id 1
+        let task_id = todo.delete_task(db, task_id.as_str()).await?;
+        let task_id_2 = todo.delete_task(db, task_id_2.as_str()).await?;
+
+        // --get all tasks
+        let all_tasks = todo.get_all_tasks(db).await?;
+
+        // Assert
+        assert!(task_id.is_empty() != true);
+        assert!(task_id_2.is_empty() != true);
+
+        // there should be no tasks in the db table
+        assert!(all_tasks.tasks.is_empty() == true);
+
+        Ok(())
     }
 }
